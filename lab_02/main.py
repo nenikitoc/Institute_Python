@@ -46,10 +46,11 @@ def customer_thread(customer_id):
         mutex.release()
 
 
-threading.Thread(target=barber_thread, daemon=True).start()
+if __name__ == "__main__":
+    threading.Thread(target=barber_thread, daemon=True).start()
 
-customer_id = 1
-while True:
-    time.sleep(random.uniform(*CLIENT_GENERATION_TIME))
-    threading.Thread(target=customer_thread, args=(customer_id,)).start()
-    customer_id += 1
+    customer_id = 1
+    while True:
+        time.sleep(random.uniform(*CLIENT_GENERATION_TIME))
+        threading.Thread(target=customer_thread, args=(customer_id,)).start()
+        customer_id += 1
