@@ -1,56 +1,67 @@
+"""Модель задачи о многопотечной парикмахерской.
+
+Парикмахер и клиенты взаимодействуют через семафоры.
+"""
+
 import threading
 import time
 import random
 
 HAIRCUT_TIME = (1, 2)
 CLIENT_GENERATION_TIME = (0.3, 1.0)
-
-customers = threading.Semaphore(0)
-barber = threading.Semaphore(0)
-mutex = threading.Semaphore(1)
-
-waiting_customers = 0
-max_chairs = 3
+MAX_CHAIRS = 3
 
 
-def barber_thread():
-    while True:
-        print("Парикмахер ждет клиента")
-        customers.acquire()
+class BarberShop:
+    """Модель многопотечной парикмахерской."""
 
-        mutex.acquire()
-        waiting_customers -= 1
-        barber.release()
-        mutex.release()
+    def __init__(self):
+        self.waiting_customers = 0
+        self.customers = threading.Semaphore(0)
+        self.barber = threading.Semaphore(0)
+        self.mutex = threading.Semaphore(1)
 
-        print("Парикмахер стрижет")
-        time.sleep(random.uniform(*HAIRCUT_TIME))
-        print("Парикмахер закончил стрижку")
+    def barber_thread(self):
+        """Поведение парикмахера: ждет клиента и стрижет."""
+        while True:
+            print("Парикмахер ждет клиента")
+            self.customers.acquire()
 
+            with self.mutex:
+                self.waiting_customers -= 1
+                self.barber.release()
 
-def customer_thread(customer_id):
-    global waiting_customers
+            print("Парикмахер стрижет")
+            time.sleep(random.uniform(*HAIRCUT_TIME))
+            print("Парикмахер закончил стрижку")
 
-    mutex.acquire()
+    def customer_thread(self, customer_id):
+        """Поведение клиента: ждет место или уходит."""
+        with self.mutex:
+            if self.waiting_customers < MAX_CHAIRS:
+                self.waiting_customers += 1
+                print(f"Клиент {customer_id} ждет ({self.waiting_customers})")
+                self.customers.release()
+            else:
+                print(f"Клиент {customer_id} ушел - нет мест")
+                return  # клиент ушел, не ждём стрижки
 
-    if waiting_customers < max_chairs:
-        waiting_customers += 1
-        print(f"Клиент {customer_id} ждет ({waiting_customers})")
-        customers.release()
-        mutex.release()
-
-        barber.acquire()
+        self.barber.acquire()
         print(f"Клиент {customer_id} стрижется")
-    else:
-        print(f"Клиент {customer_id} ушел - нет мест")
-        mutex.release()
+
+
+def main():
+    """Запуск симуляции парикмахерской."""
+    shop = BarberShop()
+    threading.Thread(target=shop.barber_thread, daemon=True).start()
+
+    customer_counter = 1
+    while True:
+        time.sleep(random.uniform(*CLIENT_GENERATION_TIME))
+        threading.Thread(target=shop.customer_thread,
+                         args=(customer_counter,)).start()
+        customer_counter += 1
 
 
 if __name__ == "__main__":
-    threading.Thread(target=barber_thread, daemon=True).start()
-
-    customer_id = 1
-    while True:
-        time.sleep(random.uniform(*CLIENT_GENERATION_TIME))
-        threading.Thread(target=customer_thread, args=(customer_id,)).start()
-        customer_id += 1
+    main()
